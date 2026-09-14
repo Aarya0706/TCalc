@@ -1,24 +1,46 @@
 import type { WorkspaceScanResult, RepoMapRoute, RepoMapFile } from "@wma/core";
 import { readFileSync } from "node:fs";
 
-function nextRouterRelativePath(relativePath: string): { router: "app" | "pages"; path: string } | null {
+function nextRouterRelativePath(relativePath: string, pathSet: Set<string>): { router: "app" | "pages"; path: string } | null {
   const segments = relativePath.split("/");
   for (let index = 0; index < segments.length; index += 1) {
-    if (segments[index] === "src" && (segments[index + 1] === "app" || segments[index + 1] === "pages")) {
-      return { router: segments[index + 1] as "app" | "pages", path: segments.slice(index + 2).join("/") };
-    }
-    if (segments[index] === "app" || segments[index] === "pages") {
-      return { router: segments[index] as "app" | "pages", path: segments.slice(index + 1).join("/") };
-    }
+    const isSrcRouter = segments[index] === "src" && (segments[index + 1] === "app" || segments[index + 1] === "pages");
+    const isDirectRouter = segments[index] === "app" || segments[index] === "pages";
+    if (!isSrcRouter && !isDirectRouter) continue;
+
+    const routerIndex = isSrcRouter ? index + 1 : index;
+    const rootSegments = segments.slice(0, isSrcRouter ? index : routerIndex);
+    const root = rootSegments.join("/");
+    const verifiedRoot = root === "" || pathSet.has(`${root}/package.json`) || ["next.config.js", "next.config.mjs", "next.config.ts"].some((name) => pathSet.has(root ? `${root}/${name}` : name));
+    if (!verifiedRoot) continue;
+
+    return {
+      router: segments[routerIndex] as "app" | "pages",
+      path: segments.slice(routerIndex + 1).join("/"),
+    };
   }
   return null;
 }
 
-function normalizeNextRoute(route: string): string {
+function normalizeDynamicSegments(route: string): string {
   return route
-    .replace(/\/index$/, "")
+    .replace(/\[\[\.\.\.(\w+)\]\]/g, ":$1*?")
     .replace(/\[\.\.\.(\w+)\]/g, ":$1*")
     .replace(/\[(\w+)\]/g, ":$1");
+}
+
+function normalizeAppRoute(route: string): string | null {
+  const segments = route.split("/").filter(Boolean);
+  if (segments.some((segment) => segment.startsWith("_"))) return null;
+  return normalizeDynamicSegments(segments.filter((segment) => !/^\(.+\)$/.test(segment)).join("/"));
+}
+
+function normalizePagesRoute(route: string): string | null {
+  const segments = route.split("/").filter(Boolean);
+  const leaf = segments.at(-1);
+  if (leaf && ["_app", "_document", "_error"].includes(leaf)) return null;
+  if (leaf === "index") segments.pop();
+  return normalizeDynamicSegments(segments.join("/"));
 }
 
 export function detectFrameworkRoutes(
@@ -31,13 +53,14 @@ export function detectFrameworkRoutes(
   for (const file of scanResult.files) {
     if (!pathSet.has(file.relativePath)) continue;
     const rp = file.relativePath.replace(/\\/g, "/");
-    const routerPath = nextRouterRelativePath(rp);
+    const routerPath = nextRouterRelativePath(rp, pathSet);
     if (!routerPath) continue;
 
     if (routerPath.router === "app") {
       const match = routerPath.path.match(/^(?:(.*)\/)?(page|layout|route)\.(?:js|jsx|ts|tsx)$/);
       if (!match) continue;
-      const route = normalizeNextRoute(match[1] ?? "");
+      const route = normalizeAppRoute(match[1] ?? "");
+      if (route === null) continue;
       routes.push({
         relativePath: rp,
         routePattern: `/${route}`,
@@ -49,7 +72,8 @@ export function detectFrameworkRoutes(
 
     const pagesMatch = routerPath.path.match(/^(.*)(?:\.js|\.jsx|\.ts|\.tsx)$/);
     if (pagesMatch) {
-      const route = normalizeNextRoute(pagesMatch[1]);
+      const route = normalizePagesRoute(pagesMatch[1]);
+      if (route === null) continue;
       routes.push({
         relativePath: rp,
         routePattern: `/${route}`,
@@ -68,12 +92,7 @@ export function detectFrameworkRoutes(
       const routeRegex = /(?:app|router)\.(get|post|put|delete|patch|use)\s*\(\s*['"`]([^'"`]+)['"`]/g;
       let m: RegExpExecArray | null;
       while ((m = routeRegex.exec(content)) !== null) {
-        routes.push({
-          relativePath: file.relativePath,
-          routePattern: m[2],
-          framework: "express",
-          reason: `${m[1].toUpperCase()} ${m[2]}`,
-        });
+        routes.push({ relativePath: file.relativePath, routePattern: m[2], framework: "express", reason: `${m[1].toUpperCase()} ${m[2]}` });
       }
     } catch {
       // Skip files that can't be read
