@@ -1,6 +1,26 @@
 import type { WorkspaceScanResult, RepoMapRoute, RepoMapFile } from "@wma/core";
 import { readFileSync } from "node:fs";
 
+function nextRouterRelativePath(relativePath: string): { router: "app" | "pages"; path: string } | null {
+  const segments = relativePath.split("/");
+  for (let index = 0; index < segments.length; index += 1) {
+    if (segments[index] === "src" && (segments[index + 1] === "app" || segments[index + 1] === "pages")) {
+      return { router: segments[index + 1] as "app" | "pages", path: segments.slice(index + 2).join("/") };
+    }
+    if (segments[index] === "app" || segments[index] === "pages") {
+      return { router: segments[index] as "app" | "pages", path: segments.slice(index + 1).join("/") };
+    }
+  }
+  return null;
+}
+
+function normalizeNextRoute(route: string): string {
+  return route
+    .replace(/\/index$/, "")
+    .replace(/\[\.\.\.(\w+)\]/g, ":$1*")
+    .replace(/\[(\w+)\]/g, ":$1");
+}
+
 export function detectFrameworkRoutes(
   scanResult: WorkspaceScanResult,
   files: RepoMapFile[],
@@ -11,55 +31,31 @@ export function detectFrameworkRoutes(
   for (const file of scanResult.files) {
     if (!pathSet.has(file.relativePath)) continue;
     const rp = file.relativePath.replace(/\\/g, "/");
+    const routerPath = nextRouterRelativePath(rp);
+    if (!routerPath) continue;
 
-    // Next.js App Router (matches both root app/page.tsx and nested app/some/page.tsx)
-    const appPageMatch = rp.match(/^app\/(?:(.*)\/)?page\.(?:js|jsx|ts|tsx)$/);
-    if (appPageMatch) {
-      const route = appPageMatch[1] ?? "";
+    if (routerPath.router === "app") {
+      const match = routerPath.path.match(/^(?:(.*)\/)?(page|layout|route)\.(?:js|jsx|ts|tsx)$/);
+      if (!match) continue;
+      const route = normalizeNextRoute(match[1] ?? "");
       routes.push({
         relativePath: rp,
-        routePattern: `/${route.replace(/\/$/, "")}`,
+        routePattern: `/${route}`,
         framework: "nextjs",
-        reason: `Next.js App Router page: ${rp}`,
+        reason: `Next.js App Router ${match[2]}: ${rp}`,
       });
       continue;
     }
 
-    const appLayoutMatch = rp.match(/^app\/(?:(.*)\/)?layout\.(?:js|jsx|ts|tsx)$/);
-    if (appLayoutMatch) {
-      const route = appLayoutMatch[1] ?? "";
-      routes.push({
-        relativePath: rp,
-        routePattern: `/${route.replace(/\/$/, "")}`,
-        framework: "nextjs",
-        reason: `Next.js App Router layout: ${rp}`,
-      });
-      continue;
-    }
-
-    const appRouteMatch = rp.match(/^app\/(?:(.*)\/)?route\.(?:js|ts)$/);
-    if (appRouteMatch) {
-      const route = appRouteMatch[1] ?? "";
-      routes.push({
-        relativePath: rp,
-        routePattern: `/${route.replace(/\/$/, "")}`,
-        framework: "nextjs",
-        reason: `Next.js App Router API route: ${rp}`,
-      });
-      continue;
-    }
-
-    // Next.js Pages Router
-    const pagesMatch = rp.match(/^pages\/(.*)(?:\.js|\.jsx|\.ts|\.tsx)$/);
+    const pagesMatch = routerPath.path.match(/^(.*)(?:\.js|\.jsx|\.ts|\.tsx)$/);
     if (pagesMatch) {
-      const route = pagesMatch[1].replace(/\/index$/, "").replace(/\[\.\.\.(\w+)\]/g, ":$1*").replace(/\[(\w+)\]/g, ":$1");
+      const route = normalizeNextRoute(pagesMatch[1]);
       routes.push({
         relativePath: rp,
         routePattern: `/${route}`,
         framework: "nextjs",
         reason: `Next.js Pages Router: ${rp}`,
       });
-      continue;
     }
   }
 
