@@ -156,7 +156,9 @@ export async function walkFiles(rootPath: string, currentPath: string, resolver:
             results.push(...await walkFiles(rootPath, fullPath, resolver, state));
           }
         } else if (targetStat.isFile()) {
-          results.push(fullPath);
+          if (!resolver.shouldIgnore(relativePath, targetStat.size).ignored) {
+            results.push(fullPath);
+          }
         }
       } catch (error) {
         state.warnings.push(`Failed to resolve symlink ${relativePath}: ${errorMessage(error)}`);
