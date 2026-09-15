@@ -38,11 +38,13 @@ export async function handleGenerateAgentRules(input: Record<string, unknown>) {
   setLatestScan(scanResult);
 
   const catalog = loadModelCatalog(resolveCatalogPath());
-  const models = applyModelProfile(catalog.models, getActiveModelProfile(policy));
+  const profile = getActiveModelProfile(policy);
+  const models = applyModelProfile(catalog.models, profile);
 
   const recommendation = models.length > 0
     ? recommendModels({
         models,
+        preferredModelIds: profile?.preferredModelIds,
         workspaceTokens: scanResult.includedTokens,
         goal,
         privacyMode,
