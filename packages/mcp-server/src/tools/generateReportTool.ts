@@ -36,7 +36,8 @@ export async function handleGenerateReport(input: Record<string, unknown>) {
   const catalog = loadModelCatalog(catalogPath);
   const validationErrors = validateModelCatalog(catalog.models);
   if (validationErrors.length > 0) throw new Error(`Invalid model catalog: ${validationErrors[0]}`);
-  const models = applyModelProfile(catalog.models, getActiveModelProfile(policy));
+  const profile = getActiveModelProfile(policy);
+  const models = applyModelProfile(catalog.models, profile);
   setLatestCatalog(catalog);
 
   let recommendation = null;
@@ -47,6 +48,7 @@ export async function handleGenerateReport(input: Record<string, unknown>) {
       goal,
       privacyMode,
       budget: policy?.maxTokenBudget,
+      preferredModelIds: profile?.preferredModelIds,
     });
     setLatestRecommendation(recommendation);
   }
