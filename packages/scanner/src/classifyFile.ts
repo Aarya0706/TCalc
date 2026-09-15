@@ -57,7 +57,7 @@ const EXTENSION_LANGUAGE_MAP: Record<string, string> = {
   ".lock": "Lockfile",
 };
 
-const GENERATED_EXTENSIONS = new Set([".min.js", ".min.css", ".bundle.js", ".chunk.js"]);
+const GENERATED_SUFFIXES = [".min.js", ".min.css", ".bundle.js", ".chunk.js"];
 const BINARY_EXTENSIONS = new Set([
   ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp",
   ".mp4", ".mp3", ".woff", ".woff2", ".ttf", ".eot",
@@ -105,9 +105,10 @@ function isSecretFile(relativePath: string): boolean {
 }
 
 function isGeneratedFile(relativePath: string): boolean {
-  const ext = path.extname(relativePath);
-  if (GENERATED_EXTENSIONS.has(ext)) return true;
-  return false;
+  // path.extname() only returns the final extension (".js" for "app.min.js"),
+  // so these compound suffixes have to be matched against the whole basename.
+  const name = path.basename(relativePath).toLowerCase();
+  return GENERATED_SUFFIXES.some(suffix => name.endsWith(suffix));
 }
 
 function isLockfile(relativePath: string): boolean {

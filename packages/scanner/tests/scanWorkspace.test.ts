@@ -80,6 +80,23 @@ describe("scanWorkspace traversal", () => {
     });
     expect(result.files[0].estimatedTokens).toBe(7);
   });
+
+  it("excludes generated assets outside build directories from the workspace total", async () => {
+    const root = await tempDirectory("tcalc-generated-");
+    const source = path.join(root, "src");
+    await mkdir(source);
+    await writeFile(path.join(source, "index.ts"), "export const value = 1;");
+    await writeFile(path.join(source, "vendor.min.js"), `${"a".repeat(2000)};`);
+
+    const result = await scanWorkspace({ rootPath: root });
+
+    const vendor = result.files.find((file) => file.relativePath === "src/vendor.min.js");
+    const index = result.files.find((file) => file.relativePath === "src/index.ts");
+    expect(vendor?.riskFlags).toContain("generated");
+    expect(vendor?.included).toBe(false);
+    expect(vendor?.estimatedTokens).toBeGreaterThan(0);
+    expect(result.includedTokens).toBe(index?.estimatedTokens);
+  });
 });
 
 async function tempDirectory(prefix: string): Promise<string> {

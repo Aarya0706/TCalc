@@ -65,7 +65,21 @@ describe("classifyFile", () => {
 
   it("should classify generated extensions", () => {
     const result = classifyFile("script.min.js", 1000);
-    expect(result.isGenerated).toBe(false);
+    expect(result.isGenerated).toBe(true);
+    expect(result.riskFlags).toContain("generated");
+  });
+
+  it("should flag minified and bundled assets outside build directories", () => {
+    for (const file of ["public/vendor.min.js", "assets/app.bundle.js", "static/js/main.chunk.js", "web/styles.min.css"]) {
+      const result = classifyFile(file, 1000);
+      expect(result.isGenerated, file).toBe(true);
+      expect(result.riskFlags, file).toContain("generated");
+    }
+  });
+
+  it("should not treat ordinary sources as generated", () => {
+    expect(classifyFile("src/bundler.js", 1000).isGenerated).toBe(false);
+    expect(classifyFile("src/minimap.css", 1000).isGenerated).toBe(false);
   });
 
   it("should detect database-dump risk", () => {
