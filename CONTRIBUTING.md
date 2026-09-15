@@ -34,12 +34,13 @@ Select **every** affected area in the PR template. A change in `packages/recomme
 
 ## Prepare a pull request
 
-1. Check for an existing issue before substantial work. Link it in the PR body (for example, `Fixes #123`). For OSCI contributions, coordinate ownership in the issue thread before duplicating someone else's work.
-2. Create a focused branch from `Development` and target `Development` in the PR, unless a maintainer asks for another base. Keep unrelated issue fixes in separate PRs.
-3. Add or update regression tests for behavior changes. Include a concise reproduction for bug fixes.
-4. Run the relevant focused checks above. Before requesting review, run `pnpm build`, `pnpm test`, `pnpm lint`, and `pnpm typecheck`. Run `pnpm smoke:all` when changing shared packages, CLI, or MCP behavior. Use `pnpm run ci` for the full local pipeline (`pnpm ci` is pnpm's clean-install command, not this script).
-5. Fill out the PR template: affected areas, issue link, behavior change, tests run with results, documentation, and privacy or compatibility impact. If a check was not run, say why. Add screenshots or a short recording for visible web/editor changes.
-6. Do not commit generated `dist/`, VSIX, `.next/`, or JetBrains `build/` files.
+1. Star the [TCalc repository](https://github.com/Sandesh13fr/TCalc) before starting contribution work. This is a mandatory participation prerequisite for OSCI contributions; confirm it in the PR checklist.
+2. Check for an existing issue and active PR before substantial work, then link the issue in the PR body (for example, `Fixes #123`). Assignment is **not required**: anyone may open a focused PR for any open issue. A short comment describing your approach is encouraged so contributors can avoid duplicating work, but maintainers will review eligible PRs on their technical merit rather than assignment order.
+3. Create a focused branch from `Development` and target `Development` in the PR, unless a maintainer asks for another base. Keep unrelated issue fixes in separate PRs.
+4. Add or update regression tests for behavior changes. Include a concise reproduction for bug fixes.
+5. Run the relevant focused checks above. Before requesting review, run `pnpm build`, `pnpm test`, `pnpm lint`, and `pnpm typecheck`. Run `pnpm smoke:all` when changing shared packages, CLI, or MCP behavior. Use `pnpm run ci` for the full local pipeline (`pnpm ci` is pnpm's clean-install command, not this script).
+6. Fill out the PR template: affected areas, issue link, behavior change, tests run with results, documentation, and privacy or compatibility impact. If a check was not run, say why. Add screenshots or a short recording for visible web/editor changes.
+7. Do not commit generated `dist/`, VSIX, `.next/`, or JetBrains `build/` files.
 
 ## Project layout
 

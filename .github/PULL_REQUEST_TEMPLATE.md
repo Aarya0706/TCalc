@@ -2,6 +2,12 @@
 
 Explain the problem, the approach, and any user-visible behavior. Link the issue: `Fixes #...` or `Related to #...`.
 
+## Contribution prerequisite
+
+- [ ] I starred the [TCalc repository](https://github.com/Sandesh13fr/TCalc) before starting this contribution.
+- [ ] I checked the issue and existing PRs for overlapping work. I understand that assignment is not required and any contributor may propose a focused solution.
+- [ ] This PR targets the `Development` branch (unless a maintainer explicitly approved another base).
+
 ## Affected areas
 
 Check **all** that apply, including downstream interfaces affected by shared-package changes.
