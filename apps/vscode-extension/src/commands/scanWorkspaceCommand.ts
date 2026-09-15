@@ -54,7 +54,8 @@ export function registerScanWorkspaceCommand(
         const config = vscode.workspace.getConfiguration("wma");
         const goal = policy?.defaultGoal ?? config.get<string>("defaultGoal") ?? "build-mvp";
         const privacyMode = policy?.privacyMode ?? config.get<string>("privacyMode") ?? "local-first";
-        const models = applyModelProfile(catalog.models, getActiveModelProfile(policy));
+        const profile = getActiveModelProfile(policy);
+        const models = applyModelProfile(catalog.models, profile);
         const catalogErrors = validateModelCatalog(catalog.models);
 
         let recommendation: RecommendationResult | null = null;
@@ -67,6 +68,7 @@ export function registerScanWorkspaceCommand(
           try {
             recommendation = recommendModels({
               models,
+              preferredModelIds: profile?.preferredModelIds,
               workspaceTokens: scanResult.includedTokens,
               goal: goal as any,
               privacyMode: privacyMode as any,

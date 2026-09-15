@@ -24,7 +24,8 @@ export async function executeRecommend(options: RecommendOptions): Promise<strin
 
   const scanResult = await scanWorkspace({ rootPath, userExcludePatterns: config.exclude });
   const catalog = resolveCatalog(options.catalog, rootPath);
-  const models = applyModelProfile(catalog.models, getActiveModelProfile(config.teamPolicy));
+  const profile = getActiveModelProfile(config.teamPolicy);
+  const models = applyModelProfile(catalog.models, profile);
 
   if (models.length === 0) {
     return "No models found in catalog. Recommendations unavailable.";
@@ -35,6 +36,7 @@ export async function executeRecommend(options: RecommendOptions): Promise<strin
 
   const result = recommendModels({
     models,
+    preferredModelIds: profile?.preferredModelIds,
     workspaceTokens: scanResult.includedTokens,
     goal,
     privacyMode: privacy,

@@ -84,6 +84,56 @@ const weakModel: ModelInfo = {
   outputPricePerMillion: 8,
 };
 
+// Two candidates identical in every scored dimension, so only the tiebreak separates them.
+// The preferred id sorts after the other, making localeCompare pick the wrong one without a
+// preference tiebreak.
+const tiedBase: ModelInfo = {
+  id: "alpha/tied",
+  displayName: "Tied Model",
+  provider: "test",
+  contextWindow: 128000,
+  maxOutputTokens: 4096,
+  inputPricePerMillion: 0.02,
+  cachedInputPricePerMillion: 0.01,
+  outputPricePerMillion: 0.04,
+  supportsTools: false,
+  supportsImages: false,
+  supportsLocal: true,
+  privacyMode: "local",
+  codingScore: 90,
+  reasoningScore: 90,
+  latencyScore: 10,
+  updatedAt: "2025-01-01",
+};
+
+const tiedAlpha: ModelInfo = { ...tiedBase, id: "alpha/tied" };
+const tiedZeta: ModelInfo = { ...tiedBase, id: "zeta/tied" };
+
+// Strictly cheapest, so it consumes the cheapest-sufficient tier and leaves the tied pair to
+// contest the later tiers.
+const cheapestDecoy: ModelInfo = {
+  ...tiedBase,
+  id: "decoy/cheapest",
+  displayName: "Cheapest Decoy",
+  inputPricePerMillion: 0.001,
+  cachedInputPricePerMillion: 0.0005,
+  outputPricePerMillion: 0.002,
+  codingScore: 20,
+  reasoningScore: 20,
+};
+
+// Higher totalScore than the tied pair (tool support and latency) but lower confidenceScore
+// (weaker coding/reasoning), so it consumes the balanced tier without touching high-confidence.
+const balancedDecoy: ModelInfo = {
+  ...tiedBase,
+  id: "decoy/balanced",
+  displayName: "Balanced Decoy",
+  supportsTools: true,
+  latencyScore: 100,
+  codingScore: 80,
+  reasoningScore: 80,
+};
+
 describe("recommendModels", () => {
   it("should select cheapest sufficient model based on total cost", () => {
     const result = recommendModels({
@@ -292,6 +342,60 @@ describe("recommendModels", () => {
     ];
     const uniqueIds = new Set(tierIds);
     expect(uniqueIds.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it("breaks cheapest-tier ties toward preferred models", () => {
+    const options = { models: [tiedAlpha, tiedZeta], workspaceTokens: 5000, goal: "debug" as const };
+
+    expect(recommendModels(options).cheapestSufficient.modelId).toBe("alpha/tied");
+    expect(recommendModels({ ...options, preferredModelIds: ["zeta/tied"] }).cheapestSufficient.modelId)
+      .toBe("zeta/tied");
+  });
+
+  it("breaks balanced-tier ties toward preferred models", () => {
+    const options = { models: [tiedAlpha, tiedZeta, cheapestDecoy], workspaceTokens: 5000, goal: "debug" as const };
+
+    const baseline = recommendModels(options);
+    expect(baseline.cheapestSufficient.modelId).toBe("decoy/cheapest");
+    expect(baseline.balanced.modelId).toBe("alpha/tied");
+
+    const preferred = recommendModels({ ...options, preferredModelIds: ["zeta/tied"] });
+    expect(preferred.balanced.modelId).toBe("zeta/tied");
+  });
+
+  it("breaks high-confidence ties toward preferred models", () => {
+    const options = {
+      models: [tiedAlpha, tiedZeta, cheapestDecoy, balancedDecoy],
+      workspaceTokens: 5000,
+      goal: "debug" as const,
+    };
+
+    const baseline = recommendModels(options);
+    expect(baseline.cheapestSufficient.modelId).toBe("decoy/cheapest");
+    expect(baseline.balanced.modelId).toBe("decoy/balanced");
+    expect(baseline.highConfidence.modelId).toBe("alpha/tied");
+
+    const preferred = recommendModels({ ...options, preferredModelIds: ["zeta/tied"] });
+    expect(preferred.highConfidence.modelId).toBe("zeta/tied");
+  });
+
+  it("never lets preference override a real scoring difference", () => {
+    // cheapestDecoy is strictly cheaper, so preferring a tied model must not steal that tier.
+    const result = recommendModels({
+      models: [tiedAlpha, tiedZeta, cheapestDecoy],
+      workspaceTokens: 5000,
+      goal: "debug",
+      preferredModelIds: ["zeta/tied"],
+    });
+
+    expect(result.cheapestSufficient.modelId).toBe("decoy/cheapest");
+  });
+
+  it("ignores preferred ids that are not in the catalog", () => {
+    const options = { models: [tiedAlpha, tiedZeta], workspaceTokens: 5000, goal: "debug" as const };
+
+    expect(recommendModels({ ...options, preferredModelIds: ["nope/missing"] }).cheapestSufficient.modelId)
+      .toBe(recommendModels(options).cheapestSufficient.modelId);
   });
 
   it("uses each tier's ranking when selecting a distinct fallback", () => {
