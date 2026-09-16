@@ -58,4 +58,12 @@ describe("loadModelCatalog", () => {
     writeFileSync(filePath, "not valid json");
     expect(() => loadModelCatalog(filePath)).toThrow(SyntaxError);
   });
+
+  it("should rethrow non-ENOENT errors (e.g. EISDIR) instead of returning empty", () => {
+    const dirAsFile = join(tmpDir, "dir-as-file");
+    mkdirSync(dirAsFile);
+    // models.json is a directory, so readFileSync throws EISDIR (non-ENOENT).
+    mkdirSync(join(dirAsFile, "models.json"));
+    expect(() => loadModelCatalog(dirAsFile)).toThrow();
+  });
 });

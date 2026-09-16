@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { ModelInfo, ModelCatalog } from "@wma/core";
 
@@ -6,25 +6,20 @@ export function loadModelCatalog(
   catalogDirOrFile: string,
   options: { warnIfMissing?: boolean } = {},
 ): ModelCatalog {
+  const resolved = path.resolve(catalogDirOrFile);
+  // Decide models.json location lexically (no existsSync) so non-ENOENT
+  // filesystem errors (ENOTDIR, EACCES, ...) are not suppressed.
+  const modelsPath = resolved.endsWith(".json")
+    ? resolved
+    : path.join(resolved, "models.json");
   try {
-    const resolved = path.resolve(catalogDirOrFile);
-
-    const modelsPath = existsSync(resolved) && !resolved.endsWith(".json")
-      ? path.join(resolved, "models.json")
-      : resolved;
-
-    if (!existsSync(modelsPath)) {
-      if (options.warnIfMissing !== false) console.warn(`Catalog file not found: ${modelsPath}`);
-      return { version: "1.0", updatedAt: new Date().toISOString().split("T")[0], models: [] };
-    }
-
     const raw = readFileSync(modelsPath, "utf-8");
     const parsed = JSON.parse(raw);
 
     return parseModelCatalog(parsed);
   } catch (error) {
     if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
-      if (options.warnIfMissing !== false) console.warn(`Catalog file not found: ${catalogDirOrFile}`);
+      if (options.warnIfMissing !== false) console.warn(`Catalog file not found: ${modelsPath}`);
       return { version: "1.0", updatedAt: new Date().toISOString().split("T")[0], models: [] };
     }
     throw error;
