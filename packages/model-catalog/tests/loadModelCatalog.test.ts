@@ -66,4 +66,8 @@ describe("loadModelCatalog", () => {
     mkdirSync(join(dirAsFile, "models.json"));
     expect(() => loadModelCatalog(dirAsFile)).toThrow();
   });
+
+  it("should throw for missing files in strict mode", () => {
+    expect(() => loadModelCatalog(join(tmpDir, "missing-strict"), { strict: true })).toThrow();
+  });
 });

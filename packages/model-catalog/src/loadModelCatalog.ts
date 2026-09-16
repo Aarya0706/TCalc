@@ -4,7 +4,7 @@ import type { ModelInfo, ModelCatalog } from "@wma/core";
 
 export function loadModelCatalog(
   catalogDirOrFile: string,
-  options: { warnIfMissing?: boolean } = {},
+  options: { warnIfMissing?: boolean; strict?: boolean } = {},
 ): ModelCatalog {
   const resolved = path.resolve(catalogDirOrFile);
   // Decide models.json location lexically (no existsSync) so non-ENOENT
@@ -19,6 +19,7 @@ export function loadModelCatalog(
     return parseModelCatalog(parsed);
   } catch (error) {
     if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+      if (options.strict) throw error;
       if (options.warnIfMissing !== false) console.warn(`Catalog file not found: ${modelsPath}`);
       return { version: "1.0", updatedAt: new Date().toISOString().split("T")[0], models: [] };
     }
