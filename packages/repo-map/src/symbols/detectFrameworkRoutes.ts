@@ -1,7 +1,36 @@
 import type { WorkspaceScanResult, RepoMapRoute, RepoMapFile } from "@wma/core";
 import { readFileSync } from "node:fs";
 
-function nextRouterRelativePath(relativePath: string, pathSet: Set<string>): { router: "app" | "pages"; path: string } | null {
+function hasNextProjectSignal(
+  root: string,
+  pathSet: Set<string>,
+  fileByRelativePath: Map<string, WorkspaceScanResult["files"][number]>,
+): boolean {
+  const prefix = root ? `${root}/` : "";
+  if (["next.config.js", "next.config.mjs", "next.config.ts"].some((name) => pathSet.has(`${prefix}${name}`))) {
+    return true;
+  }
+
+  const manifestPath = `${prefix}package.json`;
+  const manifest = fileByRelativePath.get(manifestPath);
+  if (!manifest) return false;
+  try {
+    const pkg = JSON.parse(readFileSync(manifest.path, "utf-8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+    return Boolean(pkg.dependencies?.next || pkg.devDependencies?.next || pkg.peerDependencies?.next);
+  } catch {
+    return false;
+  }
+}
+
+function nextRouterRelativePath(
+  relativePath: string,
+  pathSet: Set<string>,
+  fileByRelativePath: Map<string, WorkspaceScanResult["files"][number]>,
+): { router: "app" | "pages"; path: string } | null {
   const segments = relativePath.split("/");
   for (let index = 0; index < segments.length; index += 1) {
     const isSrcRouter = segments[index] === "src" && (segments[index + 1] === "app" || segments[index + 1] === "pages");
@@ -11,8 +40,7 @@ function nextRouterRelativePath(relativePath: string, pathSet: Set<string>): { r
     const routerIndex = isSrcRouter ? index + 1 : index;
     const rootSegments = segments.slice(0, isSrcRouter ? index : routerIndex);
     const root = rootSegments.join("/");
-    const verifiedRoot = root === "" || pathSet.has(`${root}/package.json`) || ["next.config.js", "next.config.mjs", "next.config.ts"].some((name) => pathSet.has(root ? `${root}/${name}` : name));
-    if (!verifiedRoot) continue;
+    if (!hasNextProjectSignal(root, pathSet, fileByRelativePath)) continue;
 
     return {
       router: segments[routerIndex] as "app" | "pages",
@@ -49,11 +77,12 @@ export function detectFrameworkRoutes(
 ): RepoMapRoute[] {
   const routes: RepoMapRoute[] = [];
   const pathSet = new Set(files.map((f) => f.relativePath));
+  const fileByRelativePath = new Map(scanResult.files.map((file) => [file.relativePath.replace(/\\/g, "/"), file]));
 
   for (const file of scanResult.files) {
     if (!pathSet.has(file.relativePath)) continue;
     const rp = file.relativePath.replace(/\\/g, "/");
-    const routerPath = nextRouterRelativePath(rp, pathSet);
+    const routerPath = nextRouterRelativePath(rp, pathSet, fileByRelativePath);
     if (!routerPath) continue;
 
     if (routerPath.router === "app") {
