@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { detectFrameworkRoutes } from "../../src/symbols/detectFrameworkRoutes.js";
 import type { WorkspaceScanResult, WorkspaceFileInfo, RepoMapFile } from "@wma/core";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -23,6 +23,9 @@ describe("detectFrameworkRoutes", () => {
       makeFileInfo("src/app/users/[id]/page.tsx", ".tsx"),
       makeFileInfo("apps/dashboard/app/docs/page.tsx", ".tsx"),
       makeFileInfo("packages/admin/src/app/api/users/route.ts", ".ts"),
+      makeFileInfo("next.config.js", ".js"),
+      makeFileInfo("apps/dashboard/next.config.js", ".js"),
+      makeFileInfo("packages/admin/next.config.ts", ".ts"),
     ];
     const routes = detectFrameworkRoutes(scan(files), files.map((f) => makeRepoMapFile(f.relativePath)));
     expect(routes.find((r) => r.relativePath === "app/page.jsx")?.routePattern).toBe("/");
@@ -32,10 +35,30 @@ describe("detectFrameworkRoutes", () => {
   });
 
   it("detects src and package-nested Pages Router paths", () => {
-    const files = [makeFileInfo("src/pages/index.tsx", ".tsx"), makeFileInfo("apps/site/pages/blog/[slug].tsx", ".tsx")];
+    const files = [
+      makeFileInfo("src/pages/index.tsx", ".tsx"),
+      makeFileInfo("apps/site/pages/blog/[slug].tsx", ".tsx"),
+      makeFileInfo("next.config.mjs", ".mjs"),
+      makeFileInfo("apps/site/next.config.js", ".js"),
+    ];
     const routes = detectFrameworkRoutes(scan(files), files.map((f) => makeRepoMapFile(f.relativePath)));
     expect(routes.find((r) => r.relativePath === "src/pages/index.tsx")?.routePattern).toBe("/");
     expect(routes.find((r) => r.relativePath === "apps/site/pages/blog/[slug].tsx")?.routePattern).toBe("/blog/:slug");
+  });
+
+  it("does not classify app routes in a non-Next package", () => {
+    const packagePath = join(tempDir, "packages", "admin", "package.json");
+    const pagePath = join(tempDir, "packages", "admin", "app", "users", "page.tsx");
+    mkdirSync(join(tempDir, "packages", "admin", "app", "users"), { recursive: true });
+    writeFileSync(packagePath, JSON.stringify({ dependencies: { react: "^19.0.0" } }), "utf-8");
+    writeFileSync(pagePath, "export default function Page() { return null; }", "utf-8");
+
+    const manifest = makeFileInfo("packages/admin/package.json", ".json");
+    manifest.path = packagePath;
+    const page = makeFileInfo("packages/admin/app/users/page.tsx", ".tsx");
+    page.path = pagePath;
+    const files = [manifest, page];
+    expect(detectFrameworkRoutes(scan(files), files.map((f) => makeRepoMapFile(f.relativePath)))).toEqual([]);
   });
 
   it("does not treat an unrelated app directory without Next.js route files as a route", () => {
