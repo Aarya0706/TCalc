@@ -126,6 +126,9 @@ function isDatabaseDump(relativePath: string): boolean {
   if ([".dump", ".sqlite", ".db"].includes(ext)) return true;
   if (ext !== ".sql") return false;
 
+  // Treat SQL as source unless its basename contains a delimited dump marker.
+  // We intentionally avoid content sniffing: valid migrations and seed scripts can contain
+  // the same DDL/INSERT statements as exports, so content is not a reliable dump signal.
   const name = path.basename(relativePath).toLowerCase();
   return /(?:^|[-_.])(backup|dump|export|snapshot|database)(?:[-_.]|$)/.test(name);
 }
