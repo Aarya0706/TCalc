@@ -87,6 +87,16 @@ describe("classifyFile", () => {
     expect(result.riskFlags).toContain("database-dump");
   });
 
+  it("should detect delimited dump markers case-insensitively", () => {
+    expect(classifyFile("archives/customer-export_2026.SQL", 1000).riskFlags).toContain("database-dump");
+    expect(classifyFile("archives/nightly_snapshot.sql", 1000).riskFlags).toContain("database-dump");
+  });
+
+  it("should not infer dumps from SQL content-like source filenames", () => {
+    expect(classifyFile("db/schema.sql", 1000).riskFlags).not.toContain("database-dump");
+    expect(classifyFile("db/seed-data.sql", 1000).riskFlags).not.toContain("database-dump");
+  });
+
   it("should include SQL migration files as source by default", () => {
     const result = classifyFile("migrations/001_init.sql", 1000);
     expect(result.language).toBe("SQL");
