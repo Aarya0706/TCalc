@@ -76,6 +76,21 @@ pnpm cli rules ./my-project --target codex --mode repo-map-first
 
 Other commands generate Markdown/JSON reports, validate model catalogs, create MCP configs, and start the local MCP server. Run `pnpm cli --help` for the complete command list.
 
+### Ignore sources and precedence
+
+TCalc applies ignore patterns in this order, with later matching rules taking precedence under normal gitignore semantics:
+
+1. root `.gitignore`;
+2. root `.cursorignore`;
+3. root `.aiderignore`;
+4. root `.continueignore`;
+5. root `.tcalcignore`;
+6. any explicit additional ignore files supplied by an integration;
+7. nested `.gitignore` files, scoped to their containing directory;
+8. workspace `exclude` patterns from TCalc configuration.
+
+Nested ignore discovery skips version-control metadata and directories already excluded by higher-level rules. As with Git, a file cannot be re-included when its parent directory remains ignored. File-size, binary, generated-file, secret, and other safety exclusions are applied separately after path ignores and cannot be weakened by a negated ignore rule.
+
 ## Choose a privacy mode
 
 TCalc applies the same privacy setting in its CLI, VS Code UI, and shared configuration:
