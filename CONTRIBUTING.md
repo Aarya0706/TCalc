@@ -55,11 +55,15 @@ pnpm package:vscode:inspect      # Verify VSIX contents
 
 ## Pull Requests
 
-1. Create a feature branch from `main`
+1. Create a feature branch from `Development`
 2. Add tests for any new functionality
 3. Ensure all tests pass (`pnpm test`)
 4. Run preflight checks (`pnpm package:vscode:preflight`)
-5. Open a PR against `main`
+5. Open a PR against `Development`
+
+### Required Status Checks
+
+Pull requests targeting **`Development`** must pass the **CI Success** status check before they can be merged. This aggregate check ensures that the required CI jobs complete successfully.
 
 ## Code Style
 
