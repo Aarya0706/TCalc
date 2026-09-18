@@ -198,6 +198,7 @@ function confidenceScore(candidate: { model: ModelInfo; score: ModelScore }): nu
 }
 
 function calculateContextFit(model: ModelInfo, contextNeeded: number): number {
+  if (contextNeeded <= 0) return 1.0;
   if (model.contextWindow >= contextNeeded * 2) return 1.0;
   if (model.contextWindow >= contextNeeded) return 0.8;
   if (model.contextWindow >= contextNeeded * 0.75) return 0.5;
@@ -217,6 +218,7 @@ function calculateCostEfficiency(cost: CostEstimate): number {
 }
 
 function calculateOverflowRisk(model: ModelInfo, contextNeeded: number): number {
+  if (contextNeeded <= 0) return 0;
   if (model.contextWindow >= contextNeeded) return 0;
   return Math.min(1, 1 - model.contextWindow / contextNeeded);
 }
