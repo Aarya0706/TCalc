@@ -8,6 +8,11 @@ export interface RecommendModelsOptions {
   outputTokens?: number;
   budget?: number;
   privacyMode?: PrivacySetting;
+  /**
+   * Model ids a team policy prefers. Used only to break ties between candidates the scoring logic
+   * already ranks equally; it never changes how a model is scored or whether it is eligible.
+   */
+  preferredModelIds?: readonly string[];
 }
 
 const DEFAULT_OUTPUT_TOKENS: Record<WorkspaceGoal, number> = {
@@ -38,6 +43,9 @@ const GOAL_DIFFICULTY: Record<WorkspaceGoal, number> = {
 
 export function recommendModels(options: RecommendModelsOptions): RecommendationResult {
   const { models, workspaceTokens, goal, outputTokens: optOutputTokens, privacyMode = "local-first", budget } = options;
+  const preferredIds = new Set(options.preferredModelIds ?? []);
+  const preferenceRank = (a: { model: ModelInfo }, b: { model: ModelInfo }): number =>
+    Number(preferredIds.has(b.model.id)) - Number(preferredIds.has(a.model.id));
 
   const contextTokens = budget === undefined ? workspaceTokens : Math.min(workspaceTokens, budget);
   const contextNeeded = Math.round(contextTokens * 1.2);
@@ -114,12 +122,14 @@ export function recommendModels(options: RecommendModelsOptions): Recommendation
 
   const usedIds = new Set<string>();
   const duplicationReason = "Same model selected for multiple tiers due to limited fitting candidates";
+  // Team preference is the last resort before the alphabetical tiebreak: it only separates
+  // candidates the scoring keys above have already ranked equally.
   const cheapestRanked = [...candidates].sort((a, b) =>
-    a.cost.totalCost - b.cost.totalCost || b.score.totalScore - a.score.totalScore || a.model.id.localeCompare(b.model.id));
+    a.cost.totalCost - b.cost.totalCost || b.score.totalScore - a.score.totalScore || preferenceRank(a, b) || a.model.id.localeCompare(b.model.id));
   const balancedRanked = [...candidates].sort((a, b) =>
-    b.score.totalScore - a.score.totalScore || a.cost.totalCost - b.cost.totalCost || a.model.id.localeCompare(b.model.id));
+    b.score.totalScore - a.score.totalScore || a.cost.totalCost - b.cost.totalCost || preferenceRank(a, b) || a.model.id.localeCompare(b.model.id));
   const confidenceRanked = [...candidates].sort((a, b) =>
-    confidenceScore(b) - confidenceScore(a) || b.score.totalScore - a.score.totalScore || a.model.id.localeCompare(b.model.id));
+    confidenceScore(b) - confidenceScore(a) || b.score.totalScore - a.score.totalScore || preferenceRank(a, b) || a.model.id.localeCompare(b.model.id));
 
   const pickUnused = (ranked: typeof candidates): typeof candidates[0] => {
     const selected = ranked.find((candidate) => !usedIds.has(candidate.model.id)) ?? ranked[0];
