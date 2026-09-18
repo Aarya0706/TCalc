@@ -85,6 +85,36 @@ describe("scanWorkspace traversal", () => {
     expect(third.cacheMisses).toBeGreaterThan(0);
   });
 
+  it("rebuilds version 2 caches so stale SQL dump flags do not survive upgrades", async () => {
+    const root = await tempDirectory("tcalc-cache-sql-upgrade-");
+    const cacheFile = path.join(root, ".cache", "scan.json");
+    const source = path.join(root, "query.sql");
+    await writeFile(source, "SELECT id FROM users;");
+    const sourceStat = await stat(source);
+    await mkdir(path.dirname(cacheFile), { recursive: true });
+    await writeFile(cacheFile, JSON.stringify({
+      version: 2,
+      tokenizerKey: "heuristic-v1",
+      files: {
+        "query.sql": {
+          bytes: sourceStat.size,
+          mtimeMs: sourceStat.mtimeMs,
+          estimatedTokens: 1,
+          riskFlags: ["database-dump"],
+        },
+      },
+    }));
+
+    const result = await scanWorkspace({ rootPath: root, cacheFile });
+    const query = result.files.find((file) => file.relativePath === "query.sql");
+    const rebuiltCache = JSON.parse(await readFile(cacheFile, "utf8")) as { version: number };
+
+    expect(result.cacheHits).toBe(0);
+    expect(query?.riskFlags).not.toContain("database-dump");
+    expect(query?.included).toBe(true);
+    expect(rebuiltCache.version).toBe(3);
+  });
+
   it("uses an optional provider tokenizer in the scan path", async () => {
     const root = await tempDirectory("tcalc-tokenizer-");
     await writeFile(path.join(root, "index.ts"), "export const value = 1;");

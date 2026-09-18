@@ -122,8 +122,15 @@ function isBuildOutput(relativePath: string): boolean {
 }
 
 function isDatabaseDump(relativePath: string): boolean {
-  const ext = path.extname(relativePath);
-  return [".sql", ".dump", ".sqlite", ".db"].includes(ext) && !ext.includes(".proto");
+  const ext = path.extname(relativePath).toLowerCase();
+  if ([".dump", ".sqlite", ".db"].includes(ext)) return true;
+  if (ext !== ".sql") return false;
+
+  // Treat SQL as source unless its basename contains a delimited dump marker.
+  // We intentionally avoid content sniffing: valid migrations and seed scripts can contain
+  // the same DDL/INSERT statements as exports, so content is not a reliable dump signal.
+  const name = path.basename(relativePath).toLowerCase();
+  return /(?:^|[-_.])(backup|dump|export|snapshot|database)(?:[-_.]|$)/.test(name);
 }
 
 function isLogFile(relativePath: string): boolean {

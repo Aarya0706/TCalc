@@ -10,20 +10,20 @@ export interface ScanCacheEntry {
 }
 
 interface ScanCacheFile {
-  version: 2;
+  version: 3;
   tokenizerKey: string;
   files: Record<string, ScanCacheEntry>;
 }
 
-export const SCAN_CACHE_VERSION = 2;
+export const SCAN_CACHE_VERSION = 3;
 
 export async function loadScanCache(cacheFile: string | undefined, tokenizerKey: string): Promise<Map<string, ScanCacheEntry>> {
   if (!cacheFile) return new Map();
   try {
     const parsed = JSON.parse(await readFile(cacheFile, "utf8")) as ScanCacheFile;
-    // Version 1 caches were produced by preview-only secret detection and may
-    // mark files with post-4KB secrets as included. Discard them so every
-    // unchanged file receives one full-text scan after upgrade.
+    // Older caches may contain preview-only secret results or the former
+    // extension-only SQL dump classification. Discard them so unchanged
+    // files are classified against the current rules after upgrade.
     if (parsed.version !== SCAN_CACHE_VERSION || parsed.tokenizerKey !== tokenizerKey || !parsed.files) return new Map();
     return new Map(Object.entries(parsed.files));
   } catch {
