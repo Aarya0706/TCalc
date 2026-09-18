@@ -25,7 +25,8 @@ export async function executeReport(options: ReportOptions): Promise<string> {
 
   const scanResult = await scanWorkspace({ rootPath, userExcludePatterns: config.exclude });
   const catalog = resolveCatalog(options.catalog, rootPath);
-  const models = applyModelProfile(catalog.models, getActiveModelProfile(config.teamPolicy));
+  const profile = getActiveModelProfile(config.teamPolicy);
+  const models = applyModelProfile(catalog.models, profile);
 
   const privacy = options.privacy ?? config.privacyMode;
   const goal = options.goal ?? config.defaultGoal;
@@ -38,6 +39,7 @@ export async function executeReport(options: ReportOptions): Promise<string> {
         workspaceTokens: scanResult.includedTokens,
         goal,
         privacyMode: privacy,
+        preferredModelIds: profile?.preferredModelIds,
       });
     } catch {
       // proceed without recommendations

@@ -36,7 +36,8 @@ export async function handleRecommendModels(input: Record<string, unknown>) {
 
   const catalog = loadModelCatalog(catalogPath);
   const validationErrors = validateModelCatalog(catalog.models);
-  const models = applyModelProfile(catalog.models, getActiveModelProfile(policy));
+  const profile = getActiveModelProfile(policy);
+  const models = applyModelProfile(catalog.models, profile);
 
   if (models.length === 0 || validationErrors.length > 0) {
     return {
@@ -59,6 +60,7 @@ export async function handleRecommendModels(input: Record<string, unknown>) {
     goal,
     privacyMode,
     budget: policy?.maxTokenBudget ? Math.min(parsed.tokenBudget ?? policy.maxTokenBudget, policy.maxTokenBudget) : parsed.tokenBudget,
+    preferredModelIds: profile?.preferredModelIds,
   });
 
   setLatestRecommendation(recommendation);
