@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { executeRepoMap } from "../src/commands/repoMap.js";
+import { executeScan } from "../src/commands/scan.js";
 
 describe("repo-map command", () => {
   it("generates markdown repo map", async () => {
@@ -109,4 +110,40 @@ describe("repo-map command", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("keeps nested-ignored directories out of scan tokens and the emitted repo map", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "tcalc-cli-nested-ignore-"));
+    try {
+      await mkdir(path.join(root, "packages", "app", "src"), { recursive: true });
+      await mkdir(path.join(root, "packages", "app", "generated"), { recursive: true });
+      await writeFile(path.join(root, "packages", "app", ".gitignore"), "generated/\n");
+      await writeFile(path.join(root, "packages", "app", "src", "index.ts"), "export const included = true;\n");
+      await writeFile(
+        path.join(root, "packages", "app", "generated", "ignored.ts"),
+        `export const ignored = "${"token-heavy ".repeat(1000)}";\n`,
+      );
+
+      const scan = JSON.parse(await executeScan({ target: root, format: "json" }));
+      const included = scan.files.find(
+        (file: { relativePath: string }) => file.relativePath === "packages/app/src/index.ts",
+      );
+
+      expect(included).toBeDefined();
+      expect(scan.includedTokens).toBe(included.estimatedTokens);
+      expect(scan.files.map((file: { relativePath: string }) => file.relativePath))
+        .not.toContain("packages/app/generated/ignored.ts");
+
+      const repoMap = JSON.parse(await executeRepoMap({
+        target: root,
+        format: "json",
+        noSymbols: true,
+      }));
+      expect(repoMap.workspaceTotalTokens).toBe(scan.includedTokens);
+      expect(JSON.stringify(repoMap)).not.toContain("packages/app/generated/ignored.ts");
+      expect(JSON.stringify(repoMap)).not.toContain("token-heavy");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
 });
