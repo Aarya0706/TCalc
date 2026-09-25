@@ -293,6 +293,17 @@ async function writeOutput(content: string, outputPath?: string, force = false):
   }
 }
 
+program.addHelpText(
+  "after",
+  `
+Examples:
+  $ wma scan ./my-project
+  $ wma recommend ./my-project --goal chat
+  $ wma repo-map ./my-project --format markdown
+  $ wma rules ./my-project --target cursor --stdout
+`
+);
+
 program.parse(process.argv);
 
 function collect(value: string, values: string[]): string[] {
