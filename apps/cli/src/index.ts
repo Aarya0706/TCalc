@@ -334,7 +334,7 @@ Examples:
 
   Work with agent rules
     $ wma rules ./my-project --target cursor --stdout
-    $ wma rules ./my-project --target claude-desktop --output AGENTS.md
+    $ wma rules ./my-project --target claude-desktop --output AGENTS.md --yes
 
 Run "wma <command> --help" to see all options for a specific command.
 `
